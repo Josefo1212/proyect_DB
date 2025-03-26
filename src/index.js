@@ -1,12 +1,12 @@
 import app from './app.js';
-import sequelize from './config/database.js';
-import './models/associations.js';
+import pool from './config/database.js';
 
 let port = process.env.PORT || 3000;
 
 async function main(){
     try{
-        await sequelize.sync({force: false}); 
+        let q = await pool.query('SELECT 1');
+        console.log(q.rows)
         console.log("la conexcion con la base de datos fue exitosa.");
         app.listen(port, () => {
             console.log(`El servidor esta corriendo en el puerto ${port}`);
