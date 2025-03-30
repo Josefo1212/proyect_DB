@@ -1,14 +1,13 @@
-import pkg from 'pg';
-const { Pool } = pkg;
+import { Sequelize } from 'sequelize';
 import dotenv from 'dotenv';
+
 dotenv.config();
 
-const pool = new Pool({
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password:process.env.DB_PASSWORD,
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT, 
-});
+const sequelize = new Sequelize(process.env.DB_NAME,process.env.DB_USER,process.env.DB_PASSWORD,{
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    dialect: process.env.DB_DIALECT,
+  }
+);
 
-export default pool;
+export default sequelize;

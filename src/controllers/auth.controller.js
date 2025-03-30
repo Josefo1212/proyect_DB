@@ -1,85 +1,89 @@
-import pool from '../config/database.js'; // Importa el pool configurado
+import Sequelize from 'sequelize';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
+import Usuario from '../models/usuario.js';
+import Persona from '../models/persona.js';
+import Admin from '../models/admin.js';
 
 dotenv.config();
 
-
 export const register = async (req, res) => {
-    const { username, password } = req.body;
-    try {
-
-        const userExists = await pool.query(
-            'SELECT * FROM usuario where username = $1',
-            [username]
-        );
-
-        console.log(userExists.rows);
-
-        if(userExists.rows.length > 0) {
-            return res.status(400).json({ message: "El usuario ya existe" });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        const result = await pool.query(
-            'INSERT INTO usuario (username, password) VALUES ($1, $2) RETURNING *',
-            [username, hashedPassword]
-        );
-        res.status(201).json(result.rows[0]);
-    } catch (error) {
-        console.error("Error en register:", error);
-        res.status(500).json({ message: error.message });
+  const { username, password, email } = req.body;
+  try {
+    if (password.length < 8 || password.length > 15) {
+      return res.status(400).json({ message: "La contraseña debe tener entre 8 y 15 caracteres." });
     }
+
+    const userExists = await Usuario.findOne({ where: { [Sequelize.Op.or]: [{ username }, { email }] } });
+
+    if (userExists) {
+      return res.status(400).json({ message: "El usuario ya existe" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = await Usuario.create({ username, password: hashedPassword, email });
+
+    await Persona.create({ usuario_id: newUser.id });
+
+    res.status(201).json(newUser);
+  } catch (error) {
+    console.error("Error en register:", error);
+    res.status(500).json({ message: error.message });
+  }
 };
-
-
 export const login = async (req, res) => {
-    const { username, password } = req.body;
+  const { email, password, admin_code } = req.body;
 
-    try {
-        const query = 'SELECT * FROM usuario WHERE username = $1';
-        const values = [username];
-        const result = await pool.query(query, values);
+  try {
+    const user = await Usuario.findOne({ where: { email } });
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: "usuario no encontrado" });
-        }
-
-        const user = result.rows[0];
-        const isMatch = await bcrypt.compare(password, user.password);
-
-        if (!isMatch) {
-            return res.status(400).json({ message: "password incorrecta" });
-        }
-
-        console.log(user)
-        // Create a session for the user
-        req.session.userId = user.id;
-
-        res.json({ message: "Inicio de sesión exitoso", success: true});
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+    if (!user) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
     }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(400).json({ message: "Password incorrecta" });
+    }
+
+    let isAdmin = false;
+
+    if (admin_code) {
+      const adminCode = await Admin.findOne({ where: { admin_code } });
+      if (adminCode) {
+        isAdmin = true;
+      }
+    }
+
+    req.session.userId = user.id;
+
+    res.json({ 
+      message: "Inicio de sesión exitoso", 
+      success: true, 
+      isAdmin
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 export const profile = async (req, res) => {
-    try {
-        const userId = req.session.userId; // Retrieve userId from session
-        if (!userId) {
-            return res.status(401).json({ message: "No autorizado" });
-        }
-
-        const query = 'SELECT id, username FROM users WHERE id = $1';
-        const values = [userId];
-        const result = await pool.query(query, values);
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: "usuario no encontrado" });
-        }
-
-        res.json(result.rows[0]);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+  try {
+    const userId = req.session.userId;
+    if (!userId) {
+      return res.status(401).json({ message: "No autorizado" });
     }
+
+    const user = await Usuario.findByPk(userId, { attributes: ['id', 'username', 'email'] });
+
+    if (!user) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
