@@ -7,7 +7,7 @@ const Persona = sequelize.define('persona', {
     type: DataTypes.INTEGER,
     primaryKey: true,
     references: {
-      model: 'Usuario',
+      model: Usuario,
       key: 'id',
     },
   },

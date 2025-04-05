@@ -8,7 +8,7 @@ const Sucursal = sequelize.define('sucursal',{
         type: DataTypes.INTEGER,
         primaryKey: true,
         references: {
-            model: 'usuario',
+            model: Usuario,
             key: 'id',
         },
     },

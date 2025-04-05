@@ -8,7 +8,7 @@ const Inventario = sequelize.define('inventario',{
         type: DataTypes.INTEGER,
         allowNull: false,
         references: {
-            model: 'sucursal',
+            model: Sucursal,
             key: 'usuario_id',
         },
     },
@@ -16,7 +16,7 @@ const Inventario = sequelize.define('inventario',{
         type: DataTypes.INTEGER,
         allowNull: false,
         references: {
-            model: 'producto',
+            model: Producto,
             key: 'id',
         },
     },

@@ -12,7 +12,7 @@ const Lista = sequelize.define('lista', {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: 'Usuario',
+      model: Usuario,
       key: 'id',
     },
   },

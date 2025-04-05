@@ -32,6 +32,7 @@ export const register = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 export const login = async (req, res) => {
   const { email, password, admin_code } = req.body;
 
@@ -51,16 +52,18 @@ export const login = async (req, res) => {
     let isAdmin = false;
 
     if (admin_code) {
-      const adminCode = await Admin.findOne({ where: { admin_code } });
+      const adminCode = await Admin.findOne({ where: { admin_code, usuario_id: user.id } });
       if (adminCode) {
         isAdmin = true;
+      } else {
+        return res.status(403).json({ message: "Este codigo admin no pertenece a este usuario" });
       }
     }
 
     req.session.userId = user.id;
 
     res.json({ 
-      message: "Inicio de sesión exitoso", 
+      message: "Inicio de sesion exitoso", 
       success: true, 
       isAdmin
     });
@@ -71,19 +74,37 @@ export const login = async (req, res) => {
 
 export const profile = async (req, res) => {
   try {
-    const userId = req.session.userId;
-    if (!userId) {
-      return res.status(401).json({ message: "No autorizado" });
+    // Verificar si la sesión está activa
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ 
+        message: "No autorizado", 
+        success: false 
+      });
     }
 
+    const userId = req.session.userId;
+
+    // Buscar al usuario por ID
     const user = await Usuario.findByPk(userId, { attributes: ['id', 'username', 'email'] });
 
     if (!user) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({ 
+        message: "Usuario no encontrado", 
+        success: false 
+      });
     }
 
-    res.json(user);
+    // Respuesta exitosa con los datos del usuario
+    res.json({ 
+      message: "Perfil obtenido exitosamente", 
+      success: true, 
+      user 
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error en profile:", error);
+    res.status(500).json({ 
+      message: "Error interno del servidor", 
+      success: false 
+    });
   }
 };

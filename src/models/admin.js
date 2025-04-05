@@ -7,7 +7,7 @@ const Admin = sequelize.define('admin', {
     type: DataTypes.INTEGER,
     primaryKey: true,
     references: {
-      model: 'Usuario',
+      model: Usuario,
       key: 'id',
     },
   },

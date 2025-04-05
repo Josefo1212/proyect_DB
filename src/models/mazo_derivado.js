@@ -7,7 +7,7 @@ const Mazo_derivado = sequelize.define('mazo_derivado', {
     type: DataTypes.INTEGER,
     primaryKey: true,
     references: {
-      model: 'Producto',
+      model: Producto,
       key: 'id',
     },
   },

@@ -7,7 +7,7 @@ const Sobre_derivado = sequelize.define('sobre_derivado', {
     type: DataTypes.INTEGER,
     primaryKey: true,
     references: {
-      model: 'Producto',
+      model: Producto,
       key: 'id',
     },
   },

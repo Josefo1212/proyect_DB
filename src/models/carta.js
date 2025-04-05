@@ -1,6 +1,9 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 import Producto from './producto.js';
+import Dibujante from './dibujante.js';
+import Coleccion from './coleccion.js';
+
 
 const Cartas = sequelize.define('cartas', {
   producto_id: {
@@ -8,7 +11,7 @@ const Cartas = sequelize.define('cartas', {
     primaryKey: true,
     allowNull: false,
     references: {
-      model: 'producto',
+      model: Producto,
       key: 'id',
     },
   },
@@ -30,7 +33,7 @@ const Cartas = sequelize.define('cartas', {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: 'dibujante',
+      model: Dibujante,
       key: 'id',
     },
 },
@@ -60,9 +63,13 @@ const Cartas = sequelize.define('cartas', {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: 'coleccion',
+      model: Coleccion,
       key: 'id',
     },
+  },
+  fecha_impresion: {
+    type: DataTypes.DATE,
+    allowNull: false,
   },
 },
 {
