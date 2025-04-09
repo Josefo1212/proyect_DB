@@ -11,6 +11,10 @@ const Conjuro = sequelize.define('conjuro',{
             key: 'producto_id',
         },
     },
+    efecto: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
 },
 {
     tableName: 'conjuro',

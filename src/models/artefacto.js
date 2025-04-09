@@ -11,6 +11,10 @@ const Artefacto = sequelize.define('artefacto',{
             key: 'producto_id',
         },
     },
+    capacidad: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
 },
 {
     tableName: 'artefacto',

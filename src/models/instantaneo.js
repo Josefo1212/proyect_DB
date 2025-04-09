@@ -2,7 +2,7 @@ import { DataTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 import Cartas from './carta.js';
 
-const Instante = sequelize.define('instante',{
+const Instantaneo = sequelize.define('instantaneo',{
     carta_id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
@@ -11,12 +11,16 @@ const Instante = sequelize.define('instante',{
             key: 'producto_id',
         },
     },
+    efecto: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
 },
 {
-    tableName: 'instante',
+    tableName: 'instantaneo',
     timestamps: false,
 });
 
-Instante.belongsTo(Cartas, {foreignKey:'carta_id'});
+Instantaneo.belongsTo(Cartas, {foreignKey:'carta_id'});
 
-export default Instante;
+export default Instantaneo;

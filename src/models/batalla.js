@@ -11,6 +11,14 @@ const Batalla = sequelize.define('batalla',{
             key: 'producto_id',
         },
     },
+    defensa: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    tipo_batalla: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
 },
 {
     tableName: 'batalla',

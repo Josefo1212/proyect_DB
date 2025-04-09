@@ -71,6 +71,10 @@ const Cartas = sequelize.define('cartas', {
     type: DataTypes.DATE,
     allowNull: false,
   },
+  costo_mana: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
 },
 {
   tableName: 'cartas',

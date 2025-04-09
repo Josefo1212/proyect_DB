@@ -4,7 +4,7 @@ import session from 'express-session'
 import cors from 'cors'
 import queriesRoutes from './routes/queries.routes.js'
 import authRouters from './routes/auth.routes.js'
-import path from 'path';
+import path from 'path'
 
 const __dirname = path.resolve();
 
@@ -12,7 +12,10 @@ const app = express()
 dotenv.config()
 app.use(express.json())
 
-app.use(cors())
+app.use(cors({
+    origin: 'http://127.0.0.1:5500', // Replace with the frontend's origin
+    credentials: true, // Allow cookies and credentials
+}));
 
 app.use(
     session({
