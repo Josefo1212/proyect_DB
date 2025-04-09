@@ -1,12 +1,11 @@
 import sequelize from '../config/database.js';
 import Cartas from '../models/carta.js';
-import Mana from '../models/mana.js';
 import Coleccion from '../models/coleccion.js';
 import dotenv from 'dotenv';
 import { Op } from 'sequelize';
 dotenv.config();
 
-// Mostrar las cartas de una colección. 
+// Mostrar las cartas de una colección. (consulta 1)
 export const getCartasByColeccion = async (req, res) => {
     const { coleccionNombre } = req.query;
 
@@ -55,7 +54,7 @@ export const getCartasByColeccion = async (req, res) => {
     }
 };
 
-// Obtener colecciones donde se puede hallar una carta
+// Obtener colecciones donde se puede hallar una carta(consulta 2)
 export const getColeccionesByCarta = async (req, res) => {
     const { cartaNombre } = req.query; // Cambiar a nombre
 
@@ -97,7 +96,7 @@ export const getColeccionesByCarta = async (req, res) => {
     }
 };
 
-// Mostrar la cantidad de criaturas, instantáneos, encantamientos, conjuros y cualquier otra categoría de carta dentro de una colección
+// Mostrar la cantidad de criaturas, instantáneos, encantamientos, conjuros y cualquier otra categoría de carta dentro de una colección(consulta 3)
 export const getCardCategoriesByCollection = async (req, res) => {
     const { coleccionNombre } = req.query;
 
@@ -191,78 +190,45 @@ export const getCardCategoriesByCollection = async (req, res) => {
     }
 };
 
-// Obtener cartas de un color específico impresas entre dos fechas, con opción de filtrar por multicolor
+// Obtener cartas de un color específico impresas entre dos fechas, con opción de filtrar por multicolor(consulta 4)
 export const getCartasByColorAndDate = async (req, res) => {
     const { color, fechaInicio, fechaFin, multicolor = 'all' } = req.query;
 
     try {
-        // Validar parámetros requeridos
-        const coloresValidos = ['blanco', 'azul', 'negro', 'rojo', 'verde'];
-        if (!color || !coloresValidos.includes(color.toLowerCase())) {
-            return res.status(400).json({
-                success: false,
-                error: "El parámetro 'color' es obligatorio y debe ser uno de: blanco, azul, negro, rojo, verde"
-            });
-        }
-
-        // Validar parámetro multicolor
-        if (!['all', 'true', 'false'].includes(multicolor)) {
-            return res.status(400).json({
-                success: false,
-                error: "El parámetro 'multicolor' debe ser: all, true o false"
-            });
-        }
-
-        // Construir consulta para PostgreSQL
         const query = `
-            SELECT c.producto_id, c.nombre, c.fecha_impresion, c.costo_mana, 
-                   col.nombre AS coleccion, d.nombre AS dibujante,
-                   STRING_AGG(DISTINCT m.tipo, ', ') AS colores_mana,
-                   CASE 
-                     WHEN COUNT(DISTINCT CASE 
-                       WHEN m.blanco = true THEN 'blanco'
-                       WHEN m.azul = true THEN 'azul'
-                       WHEN m.negro = true THEN 'negro'
-                       WHEN m.rojo = true THEN 'rojo'
-                       WHEN m.verde = true THEN 'verde'
-                     END) > 1 THEN 'multicolor'
-                     ELSE 'monocolor'
-                   END AS tipo_carta
+            SELECT 
+                c.producto_id, 
+                c.nombre, 
+                c.fecha_impresion, 
+                c.costo_mana,
+                STRING_AGG(DISTINCT m.tipo, ', ') AS colores,
+                cm.tipo_coste AS tipo
             FROM cartas c
             JOIN carta_mana cm ON c.producto_id = cm.carta_id
             JOIN mana m ON cm.mana_tipo = m.tipo
-            JOIN coleccion col ON c.coleccion_id = col.id
-            JOIN dibujante d ON c.dibujante_id = d.id
-            WHERE 
-              ($1 = 'blanco' AND m.blanco = true) OR
-              ($1 = 'azul' AND m.azul = true) OR
-              ($1 = 'negro' AND m.negro = true) OR
-              ($1 = 'rojo' AND m.rojo = true) OR
-              ($1 = 'verde' AND m.verde = true)
-            AND ($2 IS NULL OR c.fecha_impresion >= $2::date)
-            AND ($3 IS NULL OR c.fecha_impresion <= $3::date)
-            GROUP BY c.producto_id, col.nombre, d.nombre
-            HAVING 
-              ($4 = 'all' OR 
-               ($4 = 'true' AND COUNT(DISTINCT CASE 
-                 WHEN m.blanco = true THEN 'blanco'
-                 WHEN m.azul = true THEN 'azul'
-                 WHEN m.negro = true THEN 'negro'
-                 WHEN m.rojo = true THEN 'rojo'
-                 WHEN m.verde = true THEN 'verde'
-               END) > 1) OR
-               ($4 = 'false' AND COUNT(DISTINCT CASE 
-                 WHEN m.blanco = true THEN 'blanco'
-                 WHEN m.azul = true THEN 'azul'
-                 WHEN m.negro = true THEN 'negro'
-                 WHEN m.rojo = true THEN 'rojo'
-                 WHEN m.verde = true THEN 'verde'
-               END) = 1))
+            WHERE
+                (m.tipo = $1 OR m.tipo LIKE $2 OR m.tipo LIKE $3)
+                AND c.fecha_impresion BETWEEN COALESCE($4::DATE, '1900-01-01') 
+                AND COALESCE($5::DATE, CURRENT_DATE)
+                AND (
+                    $6 = 'all' OR
+                    ($6 = 'true' AND cm.tipo_coste = 'multicolor') OR
+                    ($6 = 'false' AND cm.tipo_coste != 'multicolor')
+                )
+            GROUP BY c.producto_id, cm.tipo_coste
             ORDER BY c.nombre;
         `;
 
+        const colorArray = color.split('/').map(c => c.toLowerCase());
         const cartas = await sequelize.query(query, {
-            bind: [color, fechaInicio || null, fechaFin || null, multicolor],
+            bind: [
+                colorArray[0], 
+                `${colorArray[0]}/%`, 
+                `%/${colorArray[0]}`, 
+                fechaInicio || null, 
+                fechaFin || null,
+                multicolor
+            ],
             type: sequelize.QueryTypes.SELECT
         });
 
@@ -286,7 +252,114 @@ export const getCartasByColorAndDate = async (req, res) => {
         });
     }
 };
-// Obtener información sobre el mazo de un jugador
+// Mostrar ofertas de productos de un usuario y la información de ese usuario, agregar la cantidad de ventas/intercambios realizados con éxito(consulta 7
+export const getUserOffersAndStats = async (req, res) => {
+    const { username } = req.query;
+
+    try {
+        if (!username) {
+            return res.status(400).json({
+                success: false,
+                error: "El parámetro 'username' es obligatorio"
+            });
+        }
+
+        // Paso 1: Obtener información del usuario
+        const usuario = await sequelize.query(`
+            SELECT 
+                u.id,
+                u.username,
+                u.email,
+                u.fecha_creacion,
+                p.nombre AS nombre_persona,
+                p.apellido,
+                s.nombre_sucursal
+            FROM usuario u
+            LEFT JOIN persona p ON u.id = p.usuario_id
+            LEFT JOIN sucursal s ON u.id = s.usuario_id
+            WHERE u.username = :username
+        `, {
+            replacements: { username },
+            type: sequelize.QueryTypes.SELECT
+        });
+
+        if (!usuario || usuario.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: `Usuario '${username}' no encontrado`
+            });
+        }
+
+        const usuarioData = usuario[0];
+        const usuarioId = usuarioData.id;
+
+        // Paso 2: Obtener ofertas del usuario
+        const ofertas = await sequelize.query(`
+            SELECT 
+                c.producto_id,
+                p.descripcion AS producto_nombre,
+                c.precio,
+                c.estado,
+                CASE 
+                    WHEN m.nombre IS NOT NULL THEN 'Mazo'
+                    WHEN s.nombre_coleccion IS NOT NULL THEN 'Sobre'
+                    ELSE 'Carta'
+                END AS tipo_producto
+            FROM comercio c
+            JOIN producto p ON c.producto_id = p.id
+            LEFT JOIN mazo_derivado m ON p.id = m.producto_id
+            LEFT JOIN sobre_derivado s ON p.id = s.producto_id
+            WHERE c.vendedor_id = :usuarioId
+        `, {
+            replacements: { usuarioId },
+            type: sequelize.QueryTypes.SELECT
+        });
+
+        // Paso 3: Contar ventas e intercambios exitosos (estado = 1)
+        const estadisticas = await sequelize.query(`
+            SELECT 
+                COALESCE(SUM(CASE WHEN c.precio > 0 AND c.estado = 1 THEN 1 ELSE 0 END), 0) AS ventas,
+                COALESCE(SUM(CASE WHEN c.precio = 0 AND c.estado = 1 THEN 1 ELSE 0 END), 0) AS intercambios
+            FROM comercio c
+            WHERE c.vendedor_id = :usuarioId
+        `, {
+            replacements: { usuarioId },
+            type: sequelize.QueryTypes.SELECT
+        });
+
+        const ventas = estadisticas[0].ventas ? parseInt(estadisticas[0].ventas, 10) : 0;
+        const intercambios = estadisticas[0].intercambios ? parseInt(estadisticas[0].intercambios, 10) : 0;
+
+        // Formatear respuesta
+        const response = {
+            usuario: {
+                id: usuarioData.id,
+                username: usuarioData.username,
+                email: usuarioData.email,
+                tipo: usuarioData.nombre_sucursal ? 'Sucursal' : 'Persona',
+                nombre: usuarioData.nombre_sucursal 
+                    ? usuarioData.nombre_sucursal 
+                    : `${usuarioData.nombre_persona} ${usuarioData.apellido}`
+            },
+            ofertas: ofertas,
+            transacciones_exitosas: {
+                ventas: ventas,
+                intercambios: intercambios,
+                total: ventas + intercambios
+            }
+        };
+
+        res.status(200).json({ success: true, data: response });
+
+    } catch (error) {
+        console.error('Error en getUserOffersAndStats:', error);
+        res.status(500).json({
+            success: false,
+            error: "Error interno al procesar la solicitud"
+        });
+    }
+};
+// Obtener información sobre el mazo de un jugador(consulta 8)
 export const getMazoInfoByJugador = async (req, res) => {
     const { username, mazoNombre } = req.query;
 
@@ -396,3 +469,5 @@ export const getMazoInfoByJugador = async (req, res) => {
         });
     }
 };
+
+
