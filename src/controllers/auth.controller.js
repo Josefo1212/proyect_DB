@@ -72,6 +72,24 @@ export const login = async (req, res) => {
   }
 };
 
+// Cerrar sesión del usuario
+export const logout = async (req, res) => {
+  try {
+      // Aquí puedes realizar cualquier limpieza necesaria, como invalidar tokens o cerrar sesiones.
+      res.status(200).json({
+          success: true,
+          message: "Sesión cerrada exitosamente"
+      });
+  } catch (error) {
+      console.error('Error en logout:', error);
+      res.status(500).json({
+          success: false,
+          error: "Error interno al cerrar sesión"
+      });
+  }
+};
+
+
 export const profile = async (req, res) => {
   try {
     // Verificar si la sesión está activa

@@ -252,6 +252,192 @@ export const getCartasByColorAndDate = async (req, res) => {
         });
     }
 };
+
+//consulta 5
+export const getProductOffers = async (req, res) => {
+    const { producto_id } = req.query;
+
+    try {
+        // Validar parámetro
+        if (!producto_id || isNaN(producto_id)) {
+            return res.status(400).json({
+                success: false,
+                error: "Se requiere un ID de producto válido"
+            });
+        }
+
+        // Consulta SQL
+        const query = `
+            SELECT
+                c.precio,
+                u.username,
+                u.email, -- Email only from usuario table
+                CASE 
+                    WHEN s.nombre_sucursal IS NOT NULL THEN 'Sucursal'
+                    ELSE 'Persona'
+                END AS tipo_vendedor,
+                COALESCE(s.nombre_sucursal, CONCAT(p.nombre, ' ', p.apellido)) AS nombre_vendedor
+            FROM comercio c
+            JOIN usuario u ON c.vendedor_id = u.id
+            LEFT JOIN persona p ON u.id = p.usuario_id
+            LEFT JOIN sucursal s ON u.id = s.usuario_id
+            WHERE 
+                c.producto_id = :producto_id 
+                AND c.estado = 1 -- Changed 'activa' to numeric value 1
+            ORDER BY c.precio ASC;
+        `;
+
+        const ofertas = await sequelize.query(query, {
+            replacements: { producto_id: parseInt(producto_id) },
+            type: sequelize.QueryTypes.SELECT
+        });
+
+        // Obtener información básica del producto
+        const producto = await sequelize.query(`
+            SELECT id, descripcion, tipo_producto 
+            FROM producto 
+            WHERE id = :producto_id
+        `, {
+            replacements: { producto_id: parseInt(producto_id) },
+            type: sequelize.QueryTypes.SELECT
+        });
+
+        if (!producto || producto.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: "Producto no encontrado"
+            });
+        }
+
+        // Respuesta estructurada
+        const response = {
+            producto: {
+                id: producto[0].id,
+                nombre: producto[0].descripcion,
+                tipo: producto[0].tipo_producto
+            },
+            ofertas_disponibles: ofertas.map(oferta => ({
+                precio: oferta.precio,
+                vendedor: {
+                    username: oferta.username,
+                    nombre: oferta.nombre_vendedor,
+                    tipo: oferta.tipo_vendedor,
+                    contacto: {
+                        email: oferta.email // Removed telefono
+                    }
+                }
+            }))
+        };
+
+        res.status(200).json({ success: true, data: response });
+
+    } catch (error) {
+        console.error('Error en getProductOffers:', error);
+        res.status(500).json({
+            success: false,
+            error: "Error al obtener las ofertas del producto"
+        });
+    }
+};
+
+//consulta 6
+export const getUserTransactionHistory = async (req, res) => {
+    const { username } = req.query;
+
+    try {
+        if (!username) {
+            return res.status(400).json({
+                success: false,
+                error: "Se requiere el nombre de usuario (username)"
+            });
+        }
+
+        const query = `
+            SELECT
+                p.descripcion AS producto,
+                c.precio,
+                CASE 
+                    WHEN c.vendedor_id = u.id THEN 'Venta'
+                    ELSE 'Compra'
+                END AS tipo_transaccion,
+                CASE
+                    WHEN c.vendedor_id = u.id THEN 
+                        CASE
+                            WHEN comprador_s.usuario_id IS NOT NULL THEN comprador_s.nombre_sucursal
+                            ELSE CONCAT(comprador_p.nombre, ' ', comprador_p.apellido)
+                        END
+                    ELSE
+                        CASE
+                            WHEN vendedor_s.usuario_id IS NOT NULL THEN vendedor_s.nombre_sucursal
+                            ELSE CONCAT(vendedor_p.nombre, ' ', vendedor_p.apellido)
+                        END
+                END AS nombre_contraparte,
+                CASE
+                    WHEN c.vendedor_id = u.id THEN 
+                        CASE
+                            WHEN comprador_s.usuario_id IS NOT NULL THEN 'Sucursal'
+                            ELSE 'Persona'
+                        END
+                    ELSE
+                        CASE
+                            WHEN vendedor_s.usuario_id IS NOT NULL THEN 'Sucursal'
+                            ELSE 'Persona'
+                        END
+                END AS tipo_contraparte,
+                COALESCE(
+                    CASE
+                        WHEN c.vendedor_id = u.id THEN comprador_u.email
+                        ELSE vendedor_u.email
+                    END, 
+                    'No disponible'
+                ) AS contacto
+            FROM comercio c
+            JOIN usuario u ON (c.vendedor_id = u.id OR c.comprador_id = u.id)
+            JOIN producto p ON c.producto_id = p.id
+            LEFT JOIN usuario comprador_u ON c.comprador_id = comprador_u.id
+            LEFT JOIN persona comprador_p ON comprador_u.id = comprador_p.usuario_id
+            LEFT JOIN sucursal comprador_s ON comprador_u.id = comprador_s.usuario_id
+            LEFT JOIN usuario vendedor_u ON c.vendedor_id = vendedor_u.id
+            LEFT JOIN persona vendedor_p ON vendedor_u.id = vendedor_p.usuario_id
+            LEFT JOIN sucursal vendedor_s ON vendedor_u.id = vendedor_s.usuario_id
+            WHERE u.username = :username
+                AND c.estado = 1
+            ORDER BY c.precio DESC; -- Removed c.fecha_transaccion
+        `;
+
+        const transacciones = await sequelize.query(query, {
+            replacements: { username },
+            type: sequelize.QueryTypes.SELECT
+        });
+
+        if (transacciones.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: "No se encontraron transacciones confirmadas"
+            });
+        }
+
+        const response = transacciones.map(t => ({
+            producto: t.producto,
+            tipo: t.tipo_transaccion,
+            monto: t.precio,
+            contraparte: {
+                nombre: t.nombre_contraparte || "Desconocido",
+                tipo: t.tipo_contraparte,
+                contacto: t.contacto
+            }
+        }));
+
+        res.status(200).json({ success: true, data: response });
+
+    } catch (error) {
+        console.error('Error en getUserTransactionHistory:', error);
+        res.status(500).json({
+            success: false,
+            error: "Error al obtener el historial"
+        });
+    }
+};
 // Mostrar ofertas de productos de un usuario y la información de ese usuario, agregar la cantidad de ventas/intercambios realizados con éxito(consulta 7
 export const getUserOffersAndStats = async (req, res) => {
     const { username } = req.query;
@@ -469,5 +655,6 @@ export const getMazoInfoByJugador = async (req, res) => {
         });
     }
 };
+
 
 
