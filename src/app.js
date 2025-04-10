@@ -4,6 +4,7 @@ import session from 'express-session'
 import cors from 'cors'
 import queriesRoutes from './routes/queries.routes.js'
 import authRouters from './routes/auth.routes.js'
+import adminRoutes from './routes/admin.routes.js'
 import path from 'path'
 
 const __dirname = path.resolve();
@@ -11,6 +12,7 @@ const __dirname = path.resolve();
 const app = express()
 dotenv.config()
 app.use(express.json())
+
 
 app.use(cors({
     origin: 'http://127.0.0.1:5500', // Replace with the frontend's origin
@@ -30,4 +32,5 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(queriesRoutes)
 app.use(authRouters)
+app.use(adminRoutes)
 export default app;

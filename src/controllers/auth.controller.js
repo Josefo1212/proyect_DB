@@ -55,6 +55,7 @@ export const login = async (req, res) => {
       const adminCode = await Admin.findOne({ where: { admin_code, usuario_id: user.id } });
       if (adminCode) {
         isAdmin = true;
+        req.session.admin = { admin_code }; // Store admin_code in the session
       } else {
         return res.status(403).json({ message: "Este codigo admin no pertenece a este usuario" });
       }
@@ -89,40 +90,3 @@ export const logout = async (req, res) => {
   }
 };
 
-
-export const profile = async (req, res) => {
-  try {
-    // Verificar si la sesión está activa
-    if (!req.session || !req.session.userId) {
-      return res.status(401).json({ 
-        message: "No autorizado", 
-        success: false 
-      });
-    }
-
-    const userId = req.session.userId;
-
-    // Buscar al usuario por ID
-    const user = await Usuario.findByPk(userId, { attributes: ['id', 'username', 'email'] });
-
-    if (!user) {
-      return res.status(404).json({ 
-        message: "Usuario no encontrado", 
-        success: false 
-      });
-    }
-
-    // Respuesta exitosa con los datos del usuario
-    res.json({ 
-      message: "Perfil obtenido exitosamente", 
-      success: true, 
-      user 
-    });
-  } catch (error) {
-    console.error("Error en profile:", error);
-    res.status(500).json({ 
-      message: "Error interno del servidor", 
-      success: false 
-    });
-  }
-};
